@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License along with
    this program.  If not, see <http://www.gnu.org/licenses/>.
 
-   Version 0.1
+   Version 0.21
  */
 
 #feature-id    Render > Image Annotation Frame
@@ -29,6 +29,7 @@
 
 #include <pjsr/Sizer.jsh>          // needed to instantiate the VerticalSizer and HorizontalSizer objects
 #include <pjsr/CheckState.jsh>     // needed to instantiate the CheckBox objects
+#include <pjsr/FontFamily.jsh>
 
 
 // constants to define frame geometry (using global var since PixInSight has problems with global consts
@@ -486,11 +487,11 @@ function annotationFrameDialog() {
    this.userResizable = true;
 
    // set the minimum width of the dialog
-   this.scaledMinWidth = 1000;
+   this.scaledMinWidth = 600;
 
    // Title area
    this.title = new TextBox(this);
-   this.title.text = "<b>Annotation Frame Script v0.2</b> by Raymond Packbier<br><br>" +
+   this.title.text = "<b>Annotation Frame Script v0.21</b> by Raymond Packbier<br><br>" +
       "This script adds an annotation frame to the image." +
       "\nYou can check if the text fits by pressing the 'Check Length' button." +
       " If the text turns red, it will not fit in the designated area." +
@@ -499,13 +500,13 @@ function annotationFrameDialog() {
       "\n<i>You can find available font faces by typing 'font' in the windows search box</i>";
 
    this.title.readOnly = true;
-   this.title.minHeight = 180;
-   this.title.maxHeight = 180;
+   this.title.minHeight = 220;
+   this.title.maxHeight = 220;
 
    // add a view picker
    this.imageLabel= new Label(this);
    this.imageLabel.text = "Target Image:";
-   this.imageLabel.minWidth = 450;
+   this.imageLabel.minWidth = 300;
    this.imageLabel.maxWidth = 450;
 
 
@@ -513,7 +514,7 @@ function annotationFrameDialog() {
    //do not list temp_render in view list
    this.imageViewList.excludeIdentifiersPattern = "temp_render";
    this.imageViewList.getAll();
-   this.imageViewList.minWidth = 450;
+   this.imageViewList.minWidth = 300;
    this.imageViewList.maxWidth = 450;
    this.imageViewList.onViewSelected = () => {
       annotationFrameParameters.imageView = this.imageViewList.currentView;
@@ -535,7 +536,7 @@ function annotationFrameDialog() {
 
       //enable or disable all other fields if image is undefined
       if (annotationFrameParameters.imageView == undefined) {
-         //disable all text boxes
+         //disable all controls
          this.imageTitle.enabled = false;
          this.bottomLeftText1.enabled = false;
          this.bottomLeftText2.enabled = false;
@@ -549,10 +550,11 @@ function annotationFrameDialog() {
          this.leftColumnCheckbox.enabled = false;
          this.centerColumnCheckbox.enabled = false;
          this.rightColumnCheckbox.enabled = false;
+         this.lengthCheckButton.enabled = false;
       }
       // if image view was set to no view in view list
       else if (annotationFrameParameters.imageView.isNull) {
-         //disable all text boxes
+         //disable all controls
          this.imageTitle.enabled = false;
          this.bottomLeftText1.enabled = false;
          this.bottomLeftText2.enabled = false;
@@ -566,9 +568,10 @@ function annotationFrameDialog() {
          this.leftColumnCheckbox.enabled = false;
          this.centerColumnCheckbox.enabled = false;
          this.rightColumnCheckbox.enabled = false;
+         this.lengthCheckButton.enabled = false;
       }
       else {
-         //enable all text boxes
+         //enable all controls
          this.imageTitle.enabled = true;
          this.bottomLeftText1.enabled = true;
          this.bottomLeftText2.enabled = true;
@@ -582,18 +585,19 @@ function annotationFrameDialog() {
          this.leftColumnCheckbox.enabled = true;
          this.centerColumnCheckbox.enabled = true;
          this.rightColumnCheckbox.enabled = true;
+         this.lengthCheckButton.enabled = true;
       }
    }
 
    // add a selector for the title font
    this.titleFontLabel = new Label(this);
    this.titleFontLabel.text = "Title Font:";
-   this.titleFontLabel.minWidth = 450;
+   this.titleFontLabel.minWidth = 300;
    this.titleFontLabel.maxWidth = 450;
 
 
    this.titleFont_ComboBox = new ComboBox(this);
-   this.titleFont_ComboBox.minWidth = 450;
+   this.titleFont_ComboBox.minWidth = 300;
    this.titleFont_ComboBox.maxWidth = 450;
    this.titleFont_ComboBox.addItem( "Helvetica" );
    this.titleFont_ComboBox.addItem( "Times" );
@@ -604,24 +608,22 @@ function annotationFrameDialog() {
    this.titleFont_ComboBox.editEnabled = true;
    this.titleFont_ComboBox.editText = titleFont.fontName;
    this.titleFont_ComboBox.toolTip = "Type a font face to draw with, or select a standard font family.";
-   this.titleFont_ComboBox.onEditTextUpdated = function()
-   {
+   this.titleFont_ComboBox.onEditTextUpdated = function() {
       titleFont.fontName = this.editText;
    };
-   this.titleFont_ComboBox.onItemSelected = function( index )
-   {
+   this.titleFont_ComboBox.onItemSelected = function( index ) {
       titleFont.fontName = this.itemText( index );
    };
 
    // add a selector for the annotation font
    this.bottomFontLabel = new Label(this);
    this.bottomFontLabel.text = "Annotation Font:";
-   this.bottomFontLabel.minWidth = 450;
+   this.bottomFontLabel.minWidth = 300;
    this.bottomFontLabel.maxWidth = 450;
 
 
    this.bottomFont_ComboBox = new ComboBox(this);
-   this.bottomFont_ComboBox.minWidth = 450;
+   this.bottomFont_ComboBox.minWidth = 300;
    this.bottomFont_ComboBox.maxWidth = 450;
    this.bottomFont_ComboBox.addItem( "Helvetica" );
    this.bottomFont_ComboBox.addItem( "Times" );
@@ -632,13 +634,11 @@ function annotationFrameDialog() {
    this.bottomFont_ComboBox.editEnabled = true;
    this.bottomFont_ComboBox.editText = bottomFont.fontName;
    this.bottomFont_ComboBox.toolTip = "Type a font face to draw with, or select a standard font family.";
-   this.bottomFont_ComboBox.onEditTextUpdated = function()
-   {
+   this.bottomFont_ComboBox.onEditTextUpdated = function() {
       bottomFont.fontName = this.editText;
    };
-   this.bottomFont_ComboBox.onItemSelected = function( index )
-   {
-      bottomFont.fontName = this.itemText( index );
+   this.bottomFont_ComboBox.onItemSelected = function(index) {
+      bottomFont.fontName = this.itemText(index);
    };
 
 
@@ -659,6 +659,7 @@ function annotationFrameDialog() {
    this.lengthCheckButton = new PushButton(this);
    this.lengthCheckButton.text = "Check Length";
    this.lengthCheckButton.width = 40;
+   this.lengthCheckButton.enabled = false;
    this.lengthCheckButton.onClick = () => {
       if (titleFits(this.imageTitle.text) == false) {
         this.imageTitle.foregroundColor = 0xFF0000;
@@ -750,10 +751,10 @@ function annotationFrameDialog() {
    // add the image view box (mocked up as a black text box)
    this.imageViewBox = new Edit(this);
    this.imageViewBox.readOnly = true;
-   this.imageViewBox.minHeight = 600;
+   this.imageViewBox.minHeight = 300;
    this.imageViewBox.maxHeight = 600;
-   this.imageViewBox.minWidth = 1500
-   this.imageViewBox.maxWidth = 1500;
+   this.imageViewBox.minWidth = 1000;
+   this.imageViewBox.maxWidth = 1000;
    this.imageViewBox.backgroundColor = 4278190080; //black
 
    // add the bottom left textbox 1
@@ -765,7 +766,7 @@ function annotationFrameDialog() {
    this.bottomLeftText1.enabled = false;
    this.bottomLeftText1.minHeight = 40;
    this.bottomLeftText1.maxHeight = 40;
-   this.bottomLeftText1.minWidth = 450;
+   this.bottomLeftText1.minWidth = 300;
    this.bottomLeftText1.maxWidth = 450;
    this.bottomLeftText1.text = annotationFrameParameters.bottomLeftText1;
    this.bottomLeftText1.onTextUpdated = () => {
@@ -777,7 +778,7 @@ function annotationFrameDialog() {
    this.bottomLeftText2.enabled = false;
    this.bottomLeftText2.minHeight = 40;
    this.bottomLeftText2.maxHeight = 40;
-   this.bottomLeftText2.minWidth = 450;
+   this.bottomLeftText2.minWidth = 300;
    this.bottomLeftText2.maxWidth = 450;
    this.bottomLeftText2.text = annotationFrameParameters.bottomLeftText2;
    this.bottomLeftText2.onTextUpdated = () => {
@@ -789,7 +790,7 @@ function annotationFrameDialog() {
    this.bottomLeftText3.enabled = false;
    this.bottomLeftText3.minHeight = 40;
    this.bottomLeftText3.maxHeight = 40;
-   this.bottomLeftText3.minWidth = 450;
+   this.bottomLeftText3.minWidth = 300;
    this.bottomLeftText3.maxWidth = 450;
    this.bottomLeftText3.text = annotationFrameParameters.bottomLeftText3;
    this.bottomLeftText3.onTextUpdated = () => {
@@ -806,7 +807,7 @@ function annotationFrameDialog() {
    this.bottomCenterText1.enabled = false;
    this.bottomCenterText1.minHeight = 40;
    this.bottomCenterText1.maxHeight = 40;
-   this.bottomCenterText1.minWidth = 450;
+   this.bottomCenterText1.minWidth = 300;
    this.bottomCenterText1.maxWidth = 450;
    this.bottomCenterText1.text = annotationFrameParameters.bottomCenterText1;
    this.bottomCenterText1.onTextUpdated = () => {
@@ -818,7 +819,7 @@ function annotationFrameDialog() {
    this.bottomCenterText2.enabled = false;
    this.bottomCenterText2.minHeight = 40;
    this.bottomCenterText2.maxHeight = 40;
-   this.bottomCenterText2.minWidth = 450;
+   this.bottomCenterText2.minWidth = 300;
    this.bottomCenterText2.maxWidth = 450;
    this.bottomCenterText2.text = annotationFrameParameters.bottomCenterText2;
    this.bottomCenterText2.onTextUpdated = () => {
@@ -830,7 +831,7 @@ function annotationFrameDialog() {
    this.bottomCenterText3.enabled = false;
    this.bottomCenterText3.minHeight = 40;
    this.bottomCenterText3.maxHeight = 40;
-   this.bottomCenterText3.minWidth = 450;
+   this.bottomCenterText3.minWidth = 300;
    this.bottomCenterText3.maxWidth = 450;
    this.bottomCenterText3.text = annotationFrameParameters.bottomCenterText3;
    this.bottomCenterText3.onTextUpdated = () => {
@@ -846,7 +847,7 @@ function annotationFrameDialog() {
    this.bottomRightText1.enabled = false;
    this.bottomRightText1.minHeight = 40;
    this.bottomRightText1.maxHeight = 40;
-   this.bottomRightText1.minWidth = 450;
+   this.bottomRightText1.minWidth = 300;
    this.bottomRightText1.maxWidth = 450;
    this.bottomRightText1.text = annotationFrameParameters.bottomRightText1;
    this.bottomRightText1.onTextUpdated = () => {
@@ -858,7 +859,7 @@ function annotationFrameDialog() {
    this.bottomRightText2.enabled = false;
    this.bottomRightText2.minHeight = 40;
    this.bottomRightText2.maxHeight = 40;
-   this.bottomRightText2.minWidth = 450;
+   this.bottomRightText2.minWidth = 300;
    this.bottomRightText2.maxWidth = 450;
    this.bottomRightText2.text = annotationFrameParameters.bottomRightText2;
    this.bottomRightText2.onTextUpdated = () => {
@@ -870,7 +871,7 @@ function annotationFrameDialog() {
    this.bottomRightText3.enabled = false;
    this.bottomRightText3.minHeight = 40;
    this.bottomRightText3.maxHeight = 40;
-   this.bottomRightText3.minWidth = 450;
+   this.bottomRightText3.minWidth = 300;
    this.bottomRightText3.maxWidth = 450;
    this.bottomRightText3.text = annotationFrameParameters.bottomRightText3;
    this.bottomRightText3.onTextUpdated = () => {
@@ -881,7 +882,7 @@ function annotationFrameDialog() {
    this.leftColumnCheckbox = new CheckBox(this);
    this.leftColumnCheckbox.text = "Enable column"
    this.leftColumnCheckbox.enabled = false;
-   this.leftColumnCheckbox.minWidth = 450;
+   this.leftColumnCheckbox.minWidth = 300;
    this.leftColumnCheckbox.maxWidth = 450;
 
    if (annotationFrameParameters.leftColumn)
@@ -920,7 +921,7 @@ function annotationFrameDialog() {
    this.centerColumnCheckbox = new CheckBox(this);
    this.centerColumnCheckbox.text = "Enable column"
    this.centerColumnCheckbox.enabled = false;
-   this.centerColumnCheckbox.minWidth = 450;
+   this.centerColumnCheckbox.minWidth = 300;
    this.centerColumnCheckbox.maxWidth = 450;
 
 
@@ -960,7 +961,7 @@ function annotationFrameDialog() {
    this.rightColumnCheckbox = new CheckBox(this);
    this.rightColumnCheckbox.text = "Enable column"
    this.rightColumnCheckbox.enabled = false;
-   this.rightColumnCheckbox.minWidth = 450;
+   this.rightColumnCheckbox.minWidth = 300;
    this.rightColumnCheckbox.maxWidth = 450;
 
 
