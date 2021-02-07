@@ -4,7 +4,7 @@
 
    LICENSE
 
-   Copyright (C) 2020 Raymond Packbier.
+   Copyright (C) 2021 Raymond Packbier.
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License along with
    this program.  If not, see <http://www.gnu.org/licenses/>.
 
-   Version 0.21
+   Version 0.3
  */
 
 #feature-id    Render > Image Annotation Frame
@@ -29,27 +29,30 @@
 
 #include <pjsr/Sizer.jsh>          // needed to instantiate the VerticalSizer and HorizontalSizer objects
 #include <pjsr/CheckState.jsh>     // needed to instantiate the CheckBox objects
+#include <pjsr/NumericControl.jsh> // needed to instantiate the NumericControl control
 #include <pjsr/FontFamily.jsh>
 
 
 // constants to define frame geometry (using global var since PixInSight has problems with global consts
 var frameWidthIncPerc = 3;
-var frameHeightIncPerc = 20;
-var verticalImageOffset = 0.55;
+var frameHeightIncPerc = 25;
+var verticalImageOffset = 50;
+var verticalImageFactor = 0.5;
+var lineDistance = 0.9;
 
 
 var annotationFrameParameters = {
    imageView: undefined,
    titleText: "Image Title",
-   bottomLeftText1: "Line 1",
-   bottomLeftText2: "Line 2",
-   bottomLeftText3: "Line 3",
-   bottomCenterText1: "Line 1",
-   bottomCenterText2: "Line 2",
-   bottomCenterText3: "Line 3",
-   bottomRightText1: "Line 1",
-   bottomRightText2: "Line 2",
-   bottomRightText3: "Line 3",
+   bottomLeftText1: "",
+   bottomLeftText2: "",
+   bottomLeftText3: "",
+   bottomCenterText1: "",
+   bottomCenterText2: "",
+   bottomCenterText3: "",
+   bottomRightText1: "",
+   bottomRightText2: "",
+   bottomRightText3: "",
    nrOfColumns: 3,
    leftColumn: true,
    centerColumn: true,
@@ -81,11 +84,14 @@ var bottomFont = {
    //will be populated by function calculateFonts
    fontName: "Helvetica",
    fontColor: 0xFFFFFF,
-   fontSizeFactor: 0.2,
+   fontSizeFactor: 0.36,
    fontSize: 0
 }
 
 var renderWindow = undefined;
+
+//global variable to hold FITS header
+var header = [];
 
 
 /*
@@ -117,12 +123,12 @@ function calculateAllDimensions(imageView) {
    //calculate vertical dimension of title bar
    allDimensions.titleBarHeight = Math.trunc(
      (allDimensions.outerFrameHeight/2 - allDimensions.framedImageHeight/2) -
-     (verticalImageOffset - 0.5) * allDimensions.framedImageHeight);
+     (verticalImageFactor - 0.5) * allDimensions.framedImageHeight);
 
    //calculate vertical dimension of bottom bar
    allDimensions.bottomBarHeight = Math.trunc(
       (allDimensions.outerFrameHeight/2 - allDimensions.framedImageHeight/2) -
-      (0.5 - verticalImageOffset) * allDimensions.framedImageHeight);
+      (0.5 - verticalImageFactor) * allDimensions.framedImageHeight);
 }
 
 /*
@@ -143,6 +149,21 @@ function calculateFonts() {
       allDimensions.bottomBarHeight / 3 * bottomFont.fontSizeFactor
 }
 
+
+function calculateDisplacement(percentage) {
+
+   //calculate maximum displacement in pixels
+   var maxMovePixels =
+      allDimensions.outerFrameHeight - allDimensions.framedImageHeight;
+
+   //calculate maximum displacement factor
+   var maxMoveFactor = maxMovePixels / allDimensions.outerFrameHeight;
+
+   //translate displacement percentage into image midpoint
+   var moveFactor =
+      0.5 - (maxMoveFactor / 2) + (maxMoveFactor * (percentage / 100));
+   return moveFactor;
+}
 
 /*
  * titleFits
@@ -191,13 +212,22 @@ function textFits(text, nrOfColumns) {
  * createTextRenderWindow
  * creates a temporary image window to render text
  * PARAMETERS:
-    * width: width of the window to be created
-    * height: height of the window to be created
+    * none
  * RETURNS:
     * imageWindow with title "temp_render"
 */
-function createTextRenderWindow(width, height) {
+function createTextRenderWindow() {
    var P = new NewImage;
+   var width = allDimensions.framedImageWidth;
+   var height;
+
+   if (allDimensions.titleBarHeight > (allDimensions.bottomBarHeight / 3)) {
+      height = allDimensions.titleBarHeight;
+   }
+   else {
+      height = allDimensions.bottomBarHeight / 3;
+   }
+
    P.id = "temp_render";
    P.width = width + 100;  // add 100 pixels to be able to measure too long text
    P.height = height;
@@ -212,7 +242,7 @@ function createTextRenderWindow(width, height) {
    P.executeGlobal();
 
    //make window invisible
-   ImageWindow.windowById("temp_render").visible = false;
+//   ImageWindow.windowById("temp_render").visible = false;
 
    return ImageWindow.windowById("temp_render");
 }
@@ -246,7 +276,10 @@ function renderTextDimensions(text,fontName,fontSize) {
    var P = new Annotation;
    P.annotationText = text;
    P.annotationFont = fontName;
-   P.annotationFontSize = fontSize;
+   if (fontSize < 256)  // maximum fontsize supported is 255
+      P.annotationFontSize = Math.round(fontSize);
+   else
+      P.annotationFontSize = 255;
    P.annotationFontBold = false;
    P.annotationFontItalic = false;
    P.annotationFontUnderline = false;
@@ -357,7 +390,7 @@ function addFrameStyle(imageView, style) {
             allDimensions.framedImageHeight, "white");
 
          //black frame offset towards bottom
-         addFrame(imageView, 0.5, verticalImageOffset,
+         addFrame(imageView, 0.5, verticalImageFactor,
             allDimensions.outerFrameWidth,
             allDimensions.outerFrameHeight, "black");
          break;
@@ -392,7 +425,10 @@ function writeImageTitle(imageView, titleString) {
    var P = new Annotation;
    P.annotationText = titleString;
    P.annotationFont = titleFont.fontName;
-   P.annotationFontSize = titleFont.fontSize;
+   if (titleFont.fontSize < 256)  // maximum fontsize supported is 255
+      P.annotationFontSize = Math.round(titleFont.fontSize);
+   else
+      P.annotationFontSize = 255;
    P.annotationFontBold = false;
    P.annotationFontItalic = false;
    P.annotationFontUnderline = false;
@@ -446,8 +482,8 @@ function writeBottomText(imageView, line, columns, block, text) {
    //calculate vertical position of text line
    var verticalTextPosition =
       imageView.image.height - allDimensions.bottomBarHeight +
-      allDimensions.bottomBarHeight * 0.17 +
-      (line-1) * bottomFont.fontSize * 0.6 / bottomFont.fontSizeFactor;
+      allDimensions.bottomBarHeight * 0.0 +
+      (line-1) * bottomFont.fontSize * lineDistance / bottomFont.fontSizeFactor;
 
    //calculate horizontalTextPosition
    var horizontalTextPosition =
@@ -474,6 +510,215 @@ function writeBottomText(imageView, line, columns, block, text) {
 }
 
 
+/* findKVPFromFITSHeader
+ * find a specific key in a FITS header and return the whole KVP
+ * PARAMETERS:
+    * name: kvp with the name to be found
+ * RETURNS:
+    * FITSKeyword if found
+    * false if not found
+*/
+function findKVPFromFITSHeader(name) {
+   var i;
+   for (i=0;i<header.length;i++) {
+      if (header[i].name == name) {
+         //need to create copy of object since it was passed by reference from array
+         var kvp = new FITSKeyword(header[i]);
+         //strip quote marks from value if the value is a string
+         if (kvp.isString)
+            kvp.value = kvp.value.slice(1,-1);
+         return kvp;
+      }
+   }
+
+   return false; //no kvp with name found
+}
+
+/* retreiveValuesFromFITSHeader
+ * retrieves stored values from the FITS header and writes annotationFrameParameters
+ * values that are not present in FITS header will not be written
+ * PARAMETERS:
+    * none
+ * RETURNS:
+    * nothing
+*/
+function retrieveValuesFromFITSHeader() {
+   var FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_imageTitle").value;
+   if (FITSword) annotationFrameParameters.titleText = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomLeftText1").value;
+   if (FITSword) annotationFrameParameters.bottomLeftText1 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomLeftText2").value;
+   if (FITSword) annotationFrameParameters.bottomLeftText2 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomLeftText3").value;
+   if (FITSword) annotationFrameParameters.bottomLeftText3 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomCenterText1").value;
+   if (FITSword) annotationFrameParameters.bottomCenterText1 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomCenterText2").value;
+   if (FITSword) annotationFrameParameters.bottomCenterText2 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomCenterText3").value;
+   if (FITSword) annotationFrameParameters.bottomCenterText3 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomRightText1").value;
+   if (FITSword) annotationFrameParameters.bottomRightText1 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomRightText2").value;
+   if (FITSword) annotationFrameParameters.bottomRightText2 = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_bottomRightText3").value;
+   if (FITSword) annotationFrameParameters.bottomRightText3 = FITSword;
+
+   //frame geometry values
+   FITSword = findKVPFromFITSHeader("AF_verImagePlacement").value;
+   if (FITSword) verticalImageOffset = parseFloat(FITSword);
+
+   FITSword = findKVPFromFITSHeader("AF_verBorderWidth").value;
+   if (FITSword) frameHeightIncPerc = parseFloat(FITSword);
+
+   FITSword = findKVPFromFITSHeader("AF_horBorderWidth").value;
+   if (FITSword) frameWidthIncPerc = parseFloat(FITSword);
+
+   //fonts
+   FITSword = findKVPFromFITSHeader("AF_titleFont").value;
+   if (FITSword) titleFont.fontName = FITSword;
+
+   FITSword = findKVPFromFITSHeader("AF_annotationFont").value;
+   if (FITSword) bottomFont.fontName = FITSword;
+}
+
+
+/* writeKVPToFitsHeader
+ * writes a key-value-pair to the FITS header
+ * PARAMETERS:
+    * kvp: FITSKeyword
+ * RETURNS:
+    * nothing
+*/
+
+function writeKVPToFITSHeader(kvp) {
+   //instantionate kvp since push will only push reference to array
+   var kvpInstance = new FITSKeyword(kvp);
+   var i;
+
+   for (i=0;i<header.length;i++) {
+//      if (header[i].isString == true) {
+         if (header[i].name.localeCompare(kvp.name) == 0) {
+            //overwrite value
+            header[i].value = kvp.value;
+            return;
+         }
+//      }
+   }
+   //else write new KVP and append to header
+   header.push(kvpInstance);
+}
+
+/* writeValuesToFITSHeader
+ * writes all texts to the FITS header
+ * PARAMETERS:
+    * imageView
+ * RETURNS:
+    * nothing
+*/
+function writeValuesToFITSHeader(imageView) {
+   var kvp = new FITSKeyword;
+
+   //write comment since it is the same for all kvps
+   var comment = "written by AnnotationFrame script";
+
+   //image title
+   kvp.assign("AF_imageTitle","'" + annotationFrameParameters.titleText + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom left text 1
+   kvp.assign("AF_bottomLeftText1", "'" + annotationFrameParameters.bottomLeftText1 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom left text 2
+   kvp.assign("AF_bottomLeftText2", "'" + annotationFrameParameters.bottomLeftText2 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom left text 3
+   kvp.assign("AF_bottomLeftText3", "'" + annotationFrameParameters.bottomLeftText3 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom center text 1
+   kvp.assign("AF_bottomCenterText1", "'" + annotationFrameParameters.bottomCenterText1 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom center text 2
+   kvp.assign("AF_bottomCenterText2","'" + annotationFrameParameters.bottomCenterText2 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom center text 3
+   kvp.assign("AF_bottomCenterText3", "'" + annotationFrameParameters.bottomCenterText3 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom right text 1
+   kvp.assign("AF_bottomRightText1", "'" + annotationFrameParameters.bottomRightText1 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom right text 2
+   kvp.assign("AF_bottomRightText2", "'" + annotationFrameParameters.bottomRightText2 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //bottom right text 3
+   kvp.assign("AF_bottomRightText3", "'" + annotationFrameParameters.bottomRightText3 + "'", comment);
+   writeKVPToFITSHeader(kvp);
+
+   //vertical image placement
+   kvp.assign("AF_verImagePlacement", verticalImageOffset, comment);
+   writeKVPToFITSHeader(kvp);
+
+   //vertical border width
+   kvp.assign("AF_verBorderWidth", frameHeightIncPerc, comment);
+   writeKVPToFITSHeader(kvp);
+
+   //horizontal border width
+   kvp.assign("AF_horBorderWidth", frameWidthIncPerc, comment);
+   writeKVPToFITSHeader(kvp);
+
+   //title font
+   kvp.assign("AF_titleFont", titleFont.fontName, comment);
+   writeKVPToFITSHeader(kvp);
+
+   //annotation font
+   kvp.assign("AF_annotationFont", bottomFont.fontName, comment);
+   writeKVPToFITSHeader(kvp);
+
+   //write message to the console
+   Console.writeln("Values are stored in FITS header of file.");
+
+   //write the header
+   var P = new FITSHeader;
+   P.keywords = headerToFITSHeader(header);
+   P.executeOn(imageView);
+}
+
+/* headerToFITSHeader
+ * converts an array of FITSKeywords to an array of arrays for writing in the FITSHeader process
+ * PARAMETERS:
+    * none
+ * RETURNS:
+    * array of arrays to write to the FITSHeader process
+*/
+function headerToFITSHeader() {
+var i;
+var outval = [];
+
+   for (i=0;i<header.length;i++) {
+      outval.push(header[i].toArray());
+   }
+   return outval;
+}
+
 /*
  * Specify Dialog
  * RETURNS
@@ -491,7 +736,7 @@ function annotationFrameDialog() {
 
    // Title area
    this.title = new TextBox(this);
-   this.title.text = "<b>Annotation Frame Script v0.21</b> by Raymond Packbier<br><br>" +
+   this.title.text = "<b>Annotation Frame Script v0.3</b> by Raymond Packbier<br><br>" +
       "This script adds an annotation frame to the image." +
       "\nYou can check if the text fits by pressing the 'Check Length' button." +
       " If the text turns red, it will not fit in the designated area." +
@@ -518,21 +763,15 @@ function annotationFrameDialog() {
    this.imageViewList.maxWidth = 450;
    this.imageViewList.onViewSelected = () => {
       annotationFrameParameters.imageView = this.imageViewList.currentView;
+
+      //try to read FITS parameters from file, if existing
+      //load complete FITS header
+      header = annotationFrameParameters.imageView.window.keywords;
+      retrieveValuesFromFITSHeader();
+
       //calculations need to be done whenever image is changed
       calculateAllDimensions(this.imageViewList.currentView);
       calculateFonts();
-
-
-      //close renderWindow if it already exists, since dimensions may be wrong
-      if ((typeof(renderWindow) != "undefined") && !renderWindow.isNull)
-         closeTextRenderWindow(renderWindow);
-
-      //create rendewWindow with new dimensions
-      if (!this.imageViewList.currentView.isNull)
-         renderWindow = createTextRenderWindow(
-            allDimensions.framedImageWidth,
-            allDimensions.titleBarHeight);
-
 
       //enable or disable all other fields if image is undefined
       if (annotationFrameParameters.imageView == undefined) {
@@ -551,6 +790,9 @@ function annotationFrameDialog() {
          this.centerColumnCheckbox.enabled = false;
          this.rightColumnCheckbox.enabled = false;
          this.lengthCheckButton.enabled = false;
+         this.verBorderWidthFactor.enabled = false;
+         this.horBorderWidthFactor.enabled = false;
+         this.verImagePlacement.enabled = false;
       }
       // if image view was set to no view in view list
       else if (annotationFrameParameters.imageView.isNull) {
@@ -569,6 +811,9 @@ function annotationFrameDialog() {
          this.centerColumnCheckbox.enabled = false;
          this.rightColumnCheckbox.enabled = false;
          this.lengthCheckButton.enabled = false;
+         this.verBorderWidthFactor.enabled = false;
+         this.horBorderWidthFactor.enabled = false;
+         this.verImagePlacement.enabled = false;
       }
       else {
          //enable all controls
@@ -586,6 +831,29 @@ function annotationFrameDialog() {
          this.centerColumnCheckbox.enabled = true;
          this.rightColumnCheckbox.enabled = true;
          this.lengthCheckButton.enabled = true;
+         this.verBorderWidthFactor.enabled = true;
+         this.horBorderWidthFactor.enabled = true;
+         this.verImagePlacement.enabled = true;
+
+
+         //update text controls
+         this.imageTitle.text = annotationFrameParameters.titleText;
+         this.bottomLeftText1.text = annotationFrameParameters.bottomLeftText1;
+         this.bottomLeftText2.text = annotationFrameParameters.bottomLeftText2;
+         this.bottomLeftText3.text = annotationFrameParameters.bottomLeftText3;
+         this.bottomCenterText1.text = annotationFrameParameters.bottomCenterText1;
+         this.bottomCenterText2.text = annotationFrameParameters.bottomCenterText2;
+         this.bottomCenterText3.text = annotationFrameParameters.bottomCenterText3;
+         this.bottomRightText1.text = annotationFrameParameters.bottomRightText1;
+         this.bottomRightText2.text = annotationFrameParameters.bottomRightText2;
+         this.bottomRightText3.text = annotationFrameParameters.bottomRightText3;
+         //update border geometry controls
+         this.verImagePlacement.setValue(verticalImageOffset);
+         this.verBorderWidthFactor.setValue(frameHeightIncPerc);
+         this.horBorderWidthFactor.setValue(frameWidthIncPerc);
+         //update font controls
+         this.titleFont_ComboBox.editText = titleFont.fontName;
+         this.bottomFont_ComboBox.editText = bottomFont.fontName;
       }
    }
 
@@ -641,6 +909,78 @@ function annotationFrameDialog() {
       bottomFont.fontName = this.itemText(index);
    };
 
+   // add a label for the vertical border width
+   this.verBorderWidthLabel = new Label(this);
+   this.verBorderWidthLabel.text = "Frame height(%)";
+   this.verBorderWidthLabel.minWidth = 300;
+   this.verBorderWidthLabel.maxWidth = 450;
+
+
+   //add a numeric control for the annotation font size factor
+   this.verBorderWidthFactor = new NumericControl(this);
+   this.verBorderWidthFactor.enabled = false;
+   this.verBorderWidthFactor.setRange(10, 30);
+   this.verBorderWidthFactor.setPrecision(1);
+   this.verBorderWidthFactor.slider.setRange(0, 100);
+   this.verBorderWidthFactor.minWidth = 300;
+   this.verBorderWidthFactor.maxWidth = 450;
+   this.verBorderWidthFactor.setValue(frameHeightIncPerc);
+   this.verBorderWidthFactor.toolTip = "<p>Height of frame in % of image height</p>";
+   this.verBorderWidthFactor.onValueUpdated = function(value)
+   {
+      frameHeightIncPerc = value;
+      //calculations need to be done whenever geometry is changed
+      calculateAllDimensions(annotationFrameParameters.imageView);
+      calculateFonts();
+   };
+
+   // add a label for the vertical image placement
+   this.verImagePlacementLabel = new Label(this);
+   this.verImagePlacementLabel.text = "Vertical image placement";
+   this.verImagePlacementLabel.minWidth = 300;
+   this.verImagePlacementLabel.maxWidth = 450;
+
+
+   //add a numeric control for the annotation font size factor
+   this.verImagePlacement = new NumericControl(this);
+   this.verImagePlacement.enabled = false;
+   this.verImagePlacement.setRange(0, 100);
+   this.verImagePlacement.setPrecision(1);
+   this.verImagePlacement.slider.setRange(0, 100);
+   this.verImagePlacement.minWidth = 300;
+   this.verImagePlacement.maxWidth = 450;
+   this.verImagePlacement.setValue(verticalImageOffset);
+   this.verImagePlacement.toolTip = "<p>Vertical image placement (middle = 50%, bottom = 0%).</p>";
+   this.verImagePlacement.onValueUpdated = function(value)
+   {
+      verticalImageOffset = value;
+      verticalImageFactor = calculateDisplacement(value);
+      //calculations need to be done whenever geometry is changed
+      calculateAllDimensions(annotationFrameParameters.imageView);
+      calculateFonts();
+   };
+
+   // add a label for the horizontal border width
+   this.horBorderWidthLabel = new Label(this);
+   this.horBorderWidthLabel.text = "Frame width (%)";
+   this.horBorderWidthLabel.minWidth = 300;
+   this.horBorderWidthLabel.maxWidth = 450;
+
+
+   //add a numeric control for the horizontal border width
+   this.horBorderWidthFactor = new NumericControl(this);
+   this.horBorderWidthFactor.enabled = false;
+   this.horBorderWidthFactor.setRange(2, 10);
+   this.horBorderWidthFactor.setPrecision(0);
+   this.horBorderWidthFactor.slider.setRange(0, 100);
+   this.horBorderWidthFactor.minWidth = 300;
+   this.horBorderWidthFactor.maxWidth = 450;
+   this.horBorderWidthFactor.setValue(frameWidthIncPerc);
+   this.horBorderWidthFactor.toolTip = "<p>Width of frame in % of image width</p>";
+   this.horBorderWidthFactor.onValueUpdated = function(value)
+   {
+      frameWidthIncPerc = value;
+   };
 
    // add a image title textbox
    this.imageTitle = new Edit(this);
@@ -661,6 +1001,15 @@ function annotationFrameDialog() {
    this.lengthCheckButton.width = 40;
    this.lengthCheckButton.enabled = false;
    this.lengthCheckButton.onClick = () => {
+       //close renderWindow if it already exists, since dimensions may be wrong
+      if ((typeof(renderWindow) != "undefined") && !renderWindow.isNull)
+         closeTextRenderWindow(renderWindow);
+
+      //create rendewWindow with new dimensions
+      if (!this.imageViewList.currentView.isNull)
+         renderWindow = createTextRenderWindow();
+
+      //title
       if (titleFits(this.imageTitle.text) == false) {
         this.imageTitle.foregroundColor = 0xFF0000;
       }
@@ -1009,6 +1358,14 @@ function annotationFrameDialog() {
    this.execButton.text = "Execute";
    this.execButton.width = 40;
    this.execButton.onClick = () => {
+      //close renderWindow if it already exists, since dimensions may be wrong
+      if ((typeof(renderWindow) != "undefined") && !renderWindow.isNull)
+         closeTextRenderWindow(renderWindow);
+
+      //create rendewWindow with new dimensions
+      if (!this.imageViewList.currentView.isNull)
+         renderWindow = createTextRenderWindow();
+
       this.ok();
    };
 
@@ -1027,6 +1384,22 @@ function annotationFrameDialog() {
    this.topControlSizer.add(this.titleFont_ComboBox);
    this.topControlSizer.addStretch();
    this.topControlSizer.add(this.bottomFont_ComboBox);
+
+   //horizontal sizer for middle labels
+   this.middleLabelSizer = new HorizontalSizer;
+   this.middleLabelSizer.add(this.verBorderWidthLabel);
+   this.middleLabelSizer.addStretch();
+   this.middleLabelSizer.add(this.verImagePlacementLabel);
+   this.middleLabelSizer.addStretch();
+   this.middleLabelSizer.add(this.horBorderWidthLabel);
+
+   //horizontal sizer for middle controls
+   this.middleControlSizer = new HorizontalSizer;
+   this.middleControlSizer.add(this.verBorderWidthFactor);
+   this.middleControlSizer.addStretch();
+   this.middleControlSizer.add(this.verImagePlacement);
+   this.middleControlSizer.addStretch();
+   this.middleControlSizer.add(this.horBorderWidthFactor);
 
    // horizontal sizer for image title text box
    this.imageTitleSizer = new HorizontalSizer;
@@ -1098,6 +1471,10 @@ function annotationFrameDialog() {
    this.sizer.addSpacing(8);
    this.sizer.add(this.topControlSizer);
    this.sizer.addSpacing(8);
+   this.sizer.add(this.middleLabelSizer);
+   this.sizer.addSpacing(8);
+   this.sizer.add(this.middleControlSizer);
+   this.sizer.addSpacing(8);
    this.sizer.add(this.imageTitleSizer);
    this.sizer.addSpacing(8);
    this.sizer.add(this.imageViewBoxSizer);
@@ -1148,6 +1525,9 @@ function main() {
          Console.criticalln("Please specify image window.");
       }
       else {
+         //store texts in FITS header
+         writeValuesToFITSHeader(annotationFrameParameters.imageView);
+
          //add frame around image
          addFrameStyle(annotationFrameParameters.imageView, "default");
 
@@ -1193,7 +1573,14 @@ function main() {
          }
 
          closeTextRenderWindow(renderWindow);
+         //write message to console to indicate how to use the history explorer
          repeat = false;
+
+         Console.noteln("If you want to optimize the settings of the script, " +
+         "you can use the History Explorer to go back to the state where the" +
+         " parameters have been stored in the FITSHeader operation.\n" +
+         "From there you can reload the script and the parameters will be kept" +
+         "so you can re-iterate on the settings.");
       }
    }
 }
