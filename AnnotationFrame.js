@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License along with
    this program.  If not, see <http://www.gnu.org/licenses/>.
 
-   Version 0.3
+   Version 0.31
  */
 
 #feature-id    Render > Image Annotation Frame
@@ -736,7 +736,7 @@ function annotationFrameDialog() {
 
    // Title area
    this.title = new TextBox(this);
-   this.title.text = "<b>Annotation Frame Script v0.3</b> by Raymond Packbier<br><br>" +
+   this.title.text = "<b>Annotation Frame Script v0.31</b> by Raymond Packbier<br><br>" +
       "This script adds an annotation frame to the image." +
       "\nYou can check if the text fits by pressing the 'Check Length' button." +
       " If the text turns red, it will not fit in the designated area." +
@@ -745,8 +745,9 @@ function annotationFrameDialog() {
       "\n<i>You can find available font faces by typing 'font' in the windows search box</i>";
 
    this.title.readOnly = true;
-   this.title.minHeight = 220;
-   this.title.maxHeight = 220;
+   this.title.minHeight = 130;
+   this.title.maxHeight = 130;
+   this.title.caretPosition = 0;
 
    // add a view picker
    this.imageLabel= new Label(this);
@@ -1100,10 +1101,10 @@ function annotationFrameDialog() {
    // add the image view box (mocked up as a black text box)
    this.imageViewBox = new Edit(this);
    this.imageViewBox.readOnly = true;
-   this.imageViewBox.minHeight = 300;
-   this.imageViewBox.maxHeight = 600;
-   this.imageViewBox.minWidth = 1000;
-   this.imageViewBox.maxWidth = 1000;
+   this.imageViewBox.minHeight = 250;
+   this.imageViewBox.maxHeight = 250;
+   this.imageViewBox.minWidth = 800;
+   this.imageViewBox.maxWidth = 800;
    this.imageViewBox.backgroundColor = 4278190080; //black
 
    // add the bottom left textbox 1
